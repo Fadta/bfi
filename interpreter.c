@@ -1,8 +1,8 @@
-#include "interpreter.h"
 #include <stdlib.h>
 #include <stddef.h>
 #include <signal.h>
 #include <stdio.h>
+#include "interpreter.h"
 
 void skipLoop(char *program, size_t *ip)
 {
