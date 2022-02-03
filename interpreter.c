@@ -36,7 +36,9 @@ void run(char* program, size_t mem_size, size_t stack_size)
 {
 	char memory[mem_size];
 	size_t stack[stack_size];
-	size_t ip, stack_ptr, mem_ptr = 0;
+	size_t mem_ptr = 0;
+	size_t ip = 0;
+	size_t stack_ptr = 0;
 
 	char current_command = program[ip++];
 	while(current_command != '\0')
