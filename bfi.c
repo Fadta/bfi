@@ -1,7 +1,42 @@
 #include <stdio.h>
 #include <stdlib.h>
+#include <string.h>
 #define MEM_SIZE 30000
 #define PROGRAM_SIZE 3000
+
+typedef struct SInterpreter {
+  int programCounter;
+  int dataPointer;
+  char *memory;
+  char *program;
+} SInterpreter;
+
+/**
+ * @return 0 if initialization was successful, 1 if an allocation problem arose
+ * @note Prints error if allocation fails
+ */
+int initializeInterpreter(SInterpreter *interpreter) {
+  interpreter->dataPointer = 0;
+  interpreter->programCounter = 0;
+  interpreter->program = (char *)malloc(PROGRAM_SIZE * sizeof(char));
+  interpreter->memory = (char *)malloc(MEM_SIZE * sizeof(char));
+
+  if (!interpreter->program || !interpreter->memory) {
+    printf("COULDN'T ALLOCATE MEMORY FOR INTERPRETER\n");
+    return 1;
+  }
+
+  for (int i = 0; i < MEM_SIZE; ++i) {
+    interpreter->memory[i] = 0;
+  }
+
+  return 0;
+}
+
+void disposeInterpreter(SInterpreter *interpreter) {
+  free(interpreter->program);
+  free(interpreter->memory);
+}
 
 /**
  * Reads the entire contents of a file into a dynamically allocated string.
@@ -108,6 +143,62 @@ int find_matching_close(char *program, int position) {
   return -1;
 }
 
+int run(SInterpreter *interpreter, char *program) {
+
+  char operation = program[interpreter->programCounter];
+  while (operation != '\0') {
+    switch (operation) {
+    case '>':
+      interpreter->dataPointer = (interpreter->dataPointer + 1) % MEM_SIZE;
+      break;
+    case '<':
+      interpreter->dataPointer =
+          (interpreter->dataPointer - 1 + MEM_SIZE) % MEM_SIZE;
+      break;
+    case '+':
+      interpreter->memory[interpreter->dataPointer]++;
+      break;
+    case '-':
+      interpreter->memory[interpreter->dataPointer]--;
+      break;
+    case '.':
+      putchar(interpreter->memory[interpreter->dataPointer]);
+      fflush(stdout);
+      break;
+    case ',': {
+      char c = getchar();
+      interpreter->memory[interpreter->dataPointer] = (c == EOF) ? 0 : c;
+    } break;
+
+    case '[':
+      if (interpreter->memory[interpreter->dataPointer] == 0) {
+        interpreter->programCounter =
+            find_matching_close(program, interpreter->programCounter);
+        if (interpreter->programCounter == -1) {
+          free(program);
+          return EXIT_FAILURE;
+        }
+      }
+      break;
+
+    case ']':
+      if (interpreter->memory[interpreter->dataPointer] != 0) {
+        interpreter->programCounter =
+            find_matching_open(program, interpreter->programCounter);
+        if (interpreter->programCounter == -1) {
+          free(program);
+          return EXIT_FAILURE;
+        }
+      }
+      break;
+    default:
+      break;
+    }
+    operation = program[++interpreter->programCounter];
+  }
+  return EXIT_SUCCESS;
+}
+
 /**
  * @note Memory layout: 30,000 bytes of memory (as per standard Brainfuck)
  * @note Implements all 8 Brainfuck operations: > < + - . , [ ]
@@ -115,10 +206,11 @@ int find_matching_close(char *program, int position) {
  * @note If no filename provided, reads program from standard input
  */
 int main(int argc, char *argv[]) {
-  char memory[MEM_SIZE] = {0};
-  int programCounter = 0;
-  int dataPointer = 0;
   char *program;
+  SInterpreter interpreter;
+  int status = initializeInterpreter(&interpreter);
+  if (status != 0)
+    return EXIT_FAILURE;
 
   if (argc == 2) {
     program = get_file(argv[1]);
@@ -147,55 +239,10 @@ int main(int argc, char *argv[]) {
   printf("Program: %s\n", program);
   fflush(stdout);
 
-  char operation = program[programCounter];
-  while (operation != '\0') {
-    switch (operation) {
-    case '>':
-      dataPointer = (dataPointer + 1) % MEM_SIZE;
-      break;
-    case '<':
-      dataPointer = (dataPointer - 1 + MEM_SIZE) % MEM_SIZE;
-      break;
-    case '+':
-      memory[dataPointer]++;
-      break;
-    case '-':
-      memory[dataPointer]--;
-      break;
-    case '.':
-      putchar(memory[dataPointer]);
-      fflush(stdout);
-      break;
-    case ',': {
-      char c = getchar();
-      memory[dataPointer] = (c == EOF) ? 0 : c;
-    } break;
+  run(&interpreter, program);
 
-    case '[':
-      if (memory[dataPointer] == 0) {
-        programCounter = find_matching_close(program, programCounter);
-        if (programCounter == -1) {
-          free(program);
-          return EXIT_FAILURE;
-        }
-      }
-      break;
-
-    case ']':
-      if (memory[dataPointer] != 0) {
-        programCounter = find_matching_open(program, programCounter);
-        if (programCounter == -1) {
-          free(program);
-          return EXIT_FAILURE;
-        }
-      }
-      break;
-    default:
-      break;
-    }
-    operation = program[++programCounter];
-  }
-
+  printf("\nPROGRAM FINISHED --- CLOSING\n");
+  disposeInterpreter(&interpreter);
   free(program);
 
   return EXIT_SUCCESS;
